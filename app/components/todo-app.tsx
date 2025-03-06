@@ -23,13 +23,18 @@ export default function TodoApp() {
   const [audioEnabled, setAudioEnabled] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const deleteAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // Initialize audio with user interaction
   const initializeAudio = () => {
     if (!audioRef.current) {
+      const basePath = process.env.NODE_ENV === 'production' ? '/to-do-app' : '';
       const audio = new Audio();
-      audio.src = '/to-do-app/task-complete.wav';
+      audio.src = `${basePath}/task-complete.wav`;
       audioRef.current = audio;
+      const deleteAudio = new Audio();
+      deleteAudio.src = `${basePath}/delete-sound.wav`;
+      deleteAudioRef.current = deleteAudio;
       setAudioEnabled(true);
     }
   };
@@ -128,11 +133,30 @@ export default function TodoApp() {
         await audio.play();
       } catch (error) {
         console.error("Error playing sound:", error);
-        // If autoplay is blocked, we'll need user interaction
         setAudioEnabled(false);
       }
     } catch (error) {
       console.error("Error in playCompleteSound:", error);
+    }
+  };
+
+  const playDeleteSound = async () => {
+    try {
+      if (!audioEnabled || !deleteAudioRef.current) {
+        return;
+      }
+      
+      const audio = deleteAudioRef.current;
+      audio.currentTime = 0;
+      
+      try {
+        await audio.play();
+      } catch (error) {
+        console.error("Error playing delete sound:", error);
+        setAudioEnabled(false);
+      }
+    } catch (error) {
+      console.error("Error in playDeleteSound:", error);
     }
   };
 
@@ -151,6 +175,8 @@ export default function TodoApp() {
   }
 
   const deleteTask = (id: string) => {
+    initializeAudio(); // Initialize audio on first interaction
+    playDeleteSound();
     setTasks(tasks.filter((task) => task.id !== id))
   }
 
