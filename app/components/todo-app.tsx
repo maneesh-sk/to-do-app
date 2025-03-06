@@ -21,6 +21,7 @@ export default function TodoApp() {
   const [newTask, setNewTask] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const inputRef = useRef<HTMLInputElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
   // Check if localStorage is available
   const isLocalStorageAvailable = () => {
@@ -104,7 +105,18 @@ export default function TodoApp() {
   }
 
   const toggleTask = (id: string) => {
-    setTasks(tasks.map((task) => (task.id === id ? { ...task, completed: !task.completed } : task)))
+    setTasks(tasks.map((task) => {
+      if (task.id === id) {
+        // If the task is being marked as complete (not already completed), play the sound
+        if (!task.completed) {
+          audioRef.current?.play().catch(error => {
+            console.error("Error playing sound:", error);
+          });
+        }
+        return { ...task, completed: !task.completed };
+      }
+      return task;
+    }));
   }
 
   const deleteTask = (id: string) => {
@@ -125,6 +137,7 @@ export default function TodoApp() {
 
   return (
     <div className="max-w-md mx-auto p-4 bg-background rounded-lg shadow-lg">
+      <audio ref={audioRef} src="/task-complete.wav" preload="auto" />
       <header className="mb-6 text-center">
         <h1 className="text-2xl font-bold text-primary">My Tasks</h1>
       </header>
