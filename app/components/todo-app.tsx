@@ -21,7 +21,22 @@ export default function TodoApp() {
   const [newTask, setNewTask] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const inputRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Initialize audio
+  useEffect(() => {
+    const audio = new Audio('/task-complete.wav');
+    audio.preload = 'auto';
+    audioRef.current = audio;
+    
+    // Test audio
+    audio.load();
+    console.log("Audio initialized");
+    
+    return () => {
+      audio.remove();
+    };
+  }, []);
 
   // Check if localStorage is available
   const isLocalStorageAvailable = () => {
@@ -104,14 +119,35 @@ export default function TodoApp() {
     inputRef.current?.focus()
   }
 
+  const playCompleteSound = async () => {
+    try {
+      const audio = audioRef.current;
+      if (!audio) {
+        console.error("Audio not initialized");
+        return;
+      }
+      
+      // Reset the audio to start
+      audio.currentTime = 0;
+      
+      // Play with error handling
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error("Error playing sound:", error);
+        });
+      }
+    } catch (error) {
+      console.error("Error in playCompleteSound:", error);
+    }
+  };
+
   const toggleTask = (id: string) => {
     setTasks(tasks.map((task) => {
       if (task.id === id) {
         // If the task is being marked as complete (not already completed), play the sound
         if (!task.completed) {
-          audioRef.current?.play().catch(error => {
-            console.error("Error playing sound:", error);
-          });
+          playCompleteSound();
         }
         return { ...task, completed: !task.completed };
       }
@@ -137,7 +173,6 @@ export default function TodoApp() {
 
   return (
     <div className="max-w-md mx-auto p-4 bg-background rounded-lg shadow-lg">
-      <audio ref={audioRef} src="/task-complete.wav" preload="auto" />
       <header className="mb-6 text-center">
         <h1 className="text-2xl font-bold text-primary">My Tasks</h1>
       </header>
