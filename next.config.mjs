@@ -21,6 +21,8 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  output: 'export',
+  basePath: process.env.NODE_ENV === 'production' ? '/to-do-app' : '',
 }
 
 mergeConfig(nextConfig, userConfig)
