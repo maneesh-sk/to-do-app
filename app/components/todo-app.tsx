@@ -28,7 +28,7 @@ export default function TodoApp() {
   const initializeAudio = () => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.src = '/task-complete.wav';
+      audio.src = '/to-do-app/task-complete.wav';
       audioRef.current = audio;
       setAudioEnabled(true);
     }
