@@ -17,11 +17,11 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    webpackBuildWorker: true,
-    parallelServerBuildTraces: true,
-    parallelServerCompiles: true,
+    webpackBuildWorker: false,
+    parallelServerBuildTraces: false,
+    parallelServerCompiles: false,
   },
-  output: 'export',
+  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
   basePath: process.env.NODE_ENV === 'production' ? '/to-do-app' : '',
 }
 

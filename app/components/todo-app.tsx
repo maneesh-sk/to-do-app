@@ -4,21 +4,43 @@ import type { KeyboardEvent } from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Check, Plus, Trash2 } from "lucide-react"
+import { Check, Plus, Trash2, Circle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+type Priority = 'P1' | 'P2' | 'P3';
 
 type Task = {
   id: string
   text: string
   completed: boolean
+  priority?: Priority
 }
+
+const PRIORITY_COLORS = {
+  P1: '#ff6b6b',
+  P2: '#feca57',
+  P3: '#54a0ff',
+} as const;
+
+const PRIORITY_LABELS = {
+  P1: 'High',
+  P2: 'Medium',
+  P3: 'Low',
+} as const;
 
 export default function TodoApp() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTask, setNewTask] = useState("")
+  const [selectedPriority, setSelectedPriority] = useState<Priority | undefined>(undefined)
   const [activeTab, setActiveTab] = useState("all")
   const [audioEnabled, setAudioEnabled] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -27,15 +49,40 @@ export default function TodoApp() {
 
   // Initialize audio with user interaction
   const initializeAudio = () => {
-    if (!audioRef.current) {
-      const basePath = process.env.NODE_ENV === 'production' ? '/to-do-app' : '';
-      const audio = new Audio();
-      audio.src = `${basePath}/task-complete.wav`;
-      audioRef.current = audio;
-      const deleteAudio = new Audio();
-      deleteAudio.src = `${basePath}/delete-sound.wav`;
-      deleteAudioRef.current = deleteAudio;
-      setAudioEnabled(true);
+    try {
+      if (!audioRef.current) {
+        const basePath = process.env.NODE_ENV === 'production' ? '/to-do-app' : '';
+        
+        // Pre-load and test audio files
+        const completeAudio = new Audio();
+        const deleteAudio = new Audio();
+        
+        // Use Promise.all to load both audio files
+        Promise.all([
+          new Promise((resolve, reject) => {
+            completeAudio.addEventListener('canplaythrough', resolve, { once: true });
+            completeAudio.addEventListener('error', reject, { once: true });
+            completeAudio.src = `${basePath}/task-complete.wav`;
+            completeAudio.load();
+          }),
+          new Promise((resolve, reject) => {
+            deleteAudio.addEventListener('canplaythrough', resolve, { once: true });
+            deleteAudio.addEventListener('error', reject, { once: true });
+            deleteAudio.src = `${basePath}/delete-sound.wav`;
+            deleteAudio.load();
+          })
+        ]).then(() => {
+          audioRef.current = completeAudio;
+          deleteAudioRef.current = deleteAudio;
+          setAudioEnabled(true);
+        }).catch((error) => {
+          console.error("Error loading audio files:", error);
+          setAudioEnabled(false);
+        });
+      }
+    } catch (error) {
+      console.error("Error in initializeAudio:", error);
+      setAudioEnabled(false);
     }
   };
 
@@ -113,11 +160,19 @@ export default function TodoApp() {
       id: crypto.randomUUID(),
       text: newTask.trim(),
       completed: false,
+      priority: selectedPriority,
     }
 
     setTasks([...tasks, task])
     setNewTask("")
+    setSelectedPriority(undefined) // Reset priority after adding task
     inputRef.current?.focus()
+  }
+
+  const updateTaskPriority = (id: string, priority: Priority | undefined) => {
+    setTasks(tasks.map((task) => 
+      task.id === id ? { ...task, priority } : task
+    ))
   }
 
   const playCompleteSound = async () => {
@@ -127,12 +182,16 @@ export default function TodoApp() {
       }
       
       const audio = audioRef.current;
-      audio.currentTime = 0;
       
       try {
+        audio.currentTime = 0;
         await audio.play();
-      } catch (error) {
-        console.error("Error playing sound:", error);
+      } catch (error: unknown) {
+        console.error("Error playing complete sound:", error);
+        if (error instanceof Error && error.name === 'NotAllowedError') {
+          // User hasn't interacted yet, we'll try again on next interaction
+          return;
+        }
         setAudioEnabled(false);
       }
     } catch (error) {
@@ -147,12 +206,16 @@ export default function TodoApp() {
       }
       
       const audio = deleteAudioRef.current;
-      audio.currentTime = 0;
       
       try {
+        audio.currentTime = 0;
         await audio.play();
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error playing delete sound:", error);
+        if (error instanceof Error && error.name === 'NotAllowedError') {
+          // User hasn't interacted yet, we'll try again on next interaction
+          return;
+        }
         setAudioEnabled(false);
       }
     } catch (error) {
@@ -198,7 +261,7 @@ export default function TodoApp() {
         <h1 className="text-2xl font-bold text-primary">My Tasks</h1>
       </header>
 
-      <div className="flex mb-4">
+      <div className="flex gap-2 mb-4">
         <Input
           ref={inputRef}
           type="text"
@@ -206,8 +269,44 @@ export default function TodoApp() {
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 mr-2"
+          className="flex-1"
         />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-full"
+            >
+              <Circle 
+                className={cn(
+                  "h-4 w-4",
+                  selectedPriority ? "fill-current" : "stroke-current fill-none"
+                )}
+                style={selectedPriority ? { color: PRIORITY_COLORS[selectedPriority] } : undefined}
+              />
+              <span className="sr-only">Set priority</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setSelectedPriority(undefined)}>
+              No Priority
+            </DropdownMenuItem>
+            {(Object.keys(PRIORITY_COLORS) as Priority[]).map((priority) => (
+              <DropdownMenuItem
+                key={priority}
+                onClick={() => setSelectedPriority(priority)}
+                className="flex items-center gap-2"
+              >
+                <Circle 
+                  className="h-3 w-3 fill-current"
+                  style={{ color: PRIORITY_COLORS[priority] }}
+                />
+                {PRIORITY_LABELS[priority]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button onClick={addTask} size="icon">
           <Plus className="h-4 w-4" />
           <span className="sr-only">Add task</span>
@@ -260,7 +359,9 @@ export default function TodoApp() {
                     {task.completed && <Check className="h-3 w-3 text-primary-foreground" />}
                   </motion.span>
                 </motion.span>
-                <span className="sr-only">{task.completed ? "Mark as incomplete" : "Mark as complete"}</span>
+                <span className="sr-only">
+                  {task.completed ? "Mark as incomplete" : "Mark as complete"}
+                </span>
               </Button>
 
               <motion.span
@@ -274,11 +375,48 @@ export default function TodoApp() {
                 {task.text}
               </motion.span>
 
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-8 w-8 shrink-0 rounded-full"
+                  >
+                    <Circle 
+                      className={cn(
+                        "h-4 w-4",
+                        task.priority ? "fill-current" : "stroke-current fill-none"
+                      )}
+                      style={task.priority ? { color: PRIORITY_COLORS[task.priority] } : undefined}
+                    />
+                    <span className="sr-only">Set priority</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => updateTaskPriority(task.id, undefined)}>
+                    No Priority
+                  </DropdownMenuItem>
+                  {(Object.keys(PRIORITY_COLORS) as Priority[]).map((priority) => (
+                    <DropdownMenuItem
+                      key={priority}
+                      onClick={() => updateTaskPriority(task.id, priority)}
+                      className="flex items-center gap-2"
+                    >
+                      <Circle 
+                        className="h-3 w-3 fill-current"
+                        style={{ color: PRIORITY_COLORS[priority] }}
+                      />
+                      {PRIORITY_LABELS[priority]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => deleteTask(task.id)}
-                className="h-8 w-8 shrink-0 rounded-full opacity-70 hover:opacity-100"
+                className="h-8 w-8 shrink-0 rounded-full opacity-70 hover:opacity-100 ml-1"
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Delete task</span>
