@@ -22,10 +22,72 @@ export default function TodoApp() {
   const [activeTab, setActiveTab] = useState("all")
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Check if localStorage is available
+  const isLocalStorageAvailable = () => {
+    try {
+      const testKey = "__test__";
+      localStorage.setItem(testKey, testKey);
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (e) {
+      console.error("localStorage is not available:", e);
+      return false;
+    }
+  };
+
+  // Load tasks from localStorage when component mounts
   useEffect(() => {
+    if (!isLocalStorageAvailable()) {
+      console.error("localStorage is not available, tasks will not persist");
+      return;
+    }
+
+    try {
+      console.log("Attempting to load tasks from localStorage...");
+      const savedTasks = localStorage.getItem("todos")
+      console.log("Raw saved tasks:", savedTasks);
+      if (savedTasks) {
+        const parsedTasks = JSON.parse(savedTasks)
+        console.log("Successfully parsed tasks:", parsedTasks);
+        setTasks(parsedTasks)
+      } else {
+        console.log("No saved tasks found in localStorage");
+      }
+    } catch (error) {
+      console.error("Error loading tasks from localStorage:", error)
+    }
     // Focus the input field when the component mounts
     inputRef.current?.focus()
   }, [])
+
+  // Save tasks to localStorage whenever they change
+  useEffect(() => {
+    if (!isLocalStorageAvailable()) {
+      return;
+    }
+
+    // Don't save if tasks is empty and there are existing tasks in localStorage
+    if (tasks.length === 0) {
+      const existingTasks = localStorage.getItem("todos");
+      if (existingTasks) {
+        const parsedExistingTasks = JSON.parse(existingTasks);
+        if (parsedExistingTasks.length > 0) {
+          return;
+        }
+      }
+    }
+
+    try {
+      console.log("Saving tasks to localStorage:", tasks);
+      const tasksString = JSON.stringify(tasks)
+      localStorage.setItem("todos", tasksString)
+      // Verify the save
+      const savedTasks = localStorage.getItem("todos")
+      console.log("Verified saved tasks:", savedTasks);
+    } catch (error) {
+      console.error("Error saving tasks to localStorage:", error)
+    }
+  }, [tasks])
 
   const addTask = () => {
     if (newTask.trim() === "") return
