@@ -20,23 +20,19 @@ export default function TodoApp() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTask, setNewTask] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [audioEnabled, setAudioEnabled] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Initialize audio
-  useEffect(() => {
-    const audio = new Audio('/task-complete.wav');
-    audio.preload = 'auto';
-    audioRef.current = audio;
-    
-    // Test audio
-    audio.load();
-    console.log("Audio initialized");
-    
-    return () => {
-      audio.remove();
-    };
-  }, []);
+  // Initialize audio with user interaction
+  const initializeAudio = () => {
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.src = '/task-complete.wav';
+      audioRef.current = audio;
+      setAudioEnabled(true);
+    }
+  };
 
   // Check if localStorage is available
   const isLocalStorageAvailable = () => {
@@ -121,21 +117,19 @@ export default function TodoApp() {
 
   const playCompleteSound = async () => {
     try {
-      const audio = audioRef.current;
-      if (!audio) {
-        console.error("Audio not initialized");
+      if (!audioEnabled || !audioRef.current) {
         return;
       }
       
-      // Reset the audio to start
+      const audio = audioRef.current;
       audio.currentTime = 0;
       
-      // Play with error handling
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.error("Error playing sound:", error);
-        });
+      try {
+        await audio.play();
+      } catch (error) {
+        console.error("Error playing sound:", error);
+        // If autoplay is blocked, we'll need user interaction
+        setAudioEnabled(false);
       }
     } catch (error) {
       console.error("Error in playCompleteSound:", error);
@@ -145,8 +139,9 @@ export default function TodoApp() {
   const toggleTask = (id: string) => {
     setTasks(tasks.map((task) => {
       if (task.id === id) {
-        // If the task is being marked as complete (not already completed), play the sound
         if (!task.completed) {
+          // Initialize audio on first interaction if not already done
+          initializeAudio();
           playCompleteSound();
         }
         return { ...task, completed: !task.completed };
