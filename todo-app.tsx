@@ -64,7 +64,7 @@ export default function TodoApp() {
   return (
     <div className="max-w-md mx-auto p-4 bg-background rounded-lg shadow-lg">
       <header className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-primary">My Tasks</h1>
+        <h1 className="text-2xl font-bold text-primary">My Tasks1</h1>
       </header>
 
       <div className="flex mb-4">
